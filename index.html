@@ -4,7 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Attendance Calculator</title>
-    <script src="config.js"></script> 
+    <script src="config.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
             --primary-start: #6D28D9; /* Deeper Purple */
@@ -150,8 +153,7 @@
             font-weight:bold;
             border: 2px solid var(--white);
         }
-        .period-card h4 { margin-left: 32px; font-weight: 600; color: var(--text-dark); }
-
+        
         .attendance-controls { display:flex; gap:10px; margin-top:15px; }
         .attendance-btn {
             flex:1;
@@ -237,6 +239,107 @@
 
         #attendanceActions { display:flex; justify-content:center; margin:24px 0 0; }
 
+        .overall-status {
+            text-align: center;
+            margin-top: 24px;
+            padding: 16px;
+            background-color: var(--light-gray);
+            border-radius: var(--radius);
+            font-size: 1.1em;
+            color: var(--text-dark);
+        }
+
+        /* --- Modal Styles --- */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 99;
+        }
+
+        .modal-container {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--white);
+            padding: 24px;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-lg);
+            z-index: 100;
+            width: 90%;
+            max-width: 500px;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .modal-header h3 { color: var(--text-dark); }
+
+        #closeModalBtn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--text-light);
+            width: auto;
+            padding: 0;
+            box-shadow: none;
+        }
+
+        .modal-body p { margin-bottom: 16px; color: var(--text-light); }
+
+        .modal-footer {
+            display: flex;
+            gap: 10px;
+            margin-top: 24px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .modal-footer button { width: 100%; }
+        #cancelSubjectBtn {
+            background: var(--white);
+            color: var(--secondary);
+            border: 1px solid var(--border-color);
+        }
+
+        /* --- Period Card Header for Swap Button --- */
+        .period-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .period-card-header h4 {
+            margin-left: 32px;
+            font-weight: 600;
+            color: var(--text-dark);
+        }
+
+        .swap-btn {
+            background: none;
+            border: 1px solid var(--border-color);
+            color: var(--text-light);
+            font-size: 12px;
+            font-weight: 600;
+            padding: 4px 8px;
+            border-radius: 6px;
+            width: auto;
+            box-shadow: none;
+        }
+        .swap-btn:hover { background: var(--light-gray); }
+        
         @media (max-width: 768px) {
             body { padding: 0; }
             .container { width:100%; min-height:100vh; margin:0; border-radius:0; }
@@ -327,6 +430,7 @@
                 <div id="statsSection" class="hidden">
                     <h3 style="text-align:center; margin-bottom:30px;">Attendance Statistics</h3>
                     <div id="statsGrid" class="stats-grid"></div>
+                    <div id="overallStatus" class="overall-status"></div>
                     <div id="subjectStats"></div>
                 </div>
                 <!-- Timetable Edit -->
@@ -345,6 +449,27 @@
                     <button id="updateTimetableBtn">Update Timetable</button>
                 </div>
             </div>
+            <!-- Subject Change Modal -->
+            <div id="subjectModal" class="hidden">
+                <div class="modal-overlay"></div>
+                <div class="modal-container">
+                    <div class="modal-header">
+                        <h3 id="modalTitle">Change Subject for Period </h3>
+                        <button id="closeModalBtn">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Select the substitute subject that was taught in this period.</p>
+                        <div class="form-group">
+                            <label for="subjectSelect">New Subject</label>
+                            <select id="subjectSelect"></select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button id="cancelSubjectBtn" class="btn-secondary">Cancel</button>
+                        <button id="saveSubjectBtn">Save Change</button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -355,8 +480,6 @@
         import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Firebase Configuration
-        // IMPORTANT: Replace this with your actual firebaseConfig object from your project settings
-        
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-attendance-app';
 
         // Initialize Firebase
@@ -663,17 +786,24 @@
                 grid.innerHTML = '<div class="no-classes">No classes today</div>';
             } else {
                 timetable.forEach((subject, i) => {
-                    const entry = saved[i] || null;
-                    const presentActive = entry?.present ? 'present-btn active' : 'present-btn';
-                    const absentActive  = entry?.present === false ? 'absent-btn active' : 'absent-btn';
+                    const timetableSubject = subject;
+                    const savedEntry = saved[i] || null;
+                    const displaySubject = savedEntry?.subject || timetableSubject;
+
+                    const presentActive = savedEntry?.present ? 'present-btn active' : 'present-btn';
+                    const absentActive  = savedEntry?.present === false ? 'absent-btn active' : 'absent-btn';
                     const disabledAttr  = locked ? 'disabled' : '';
+                    
                     grid.innerHTML += `
                         <div class="period-card">
                             <div class="period-number">${i+1}</div>
-                            <h4 style="margin-left:40px;">${subject}</h4>
+                            <div class="period-card-header">
+                                <h4>${displaySubject}</h4>
+                                <button class="swap-btn" data-period="${i}" ${disabledAttr}>Swap</button>
+                            </div>
                             <div class="attendance-controls">
-                                <button class="attendance-btn ${presentActive}" ${disabledAttr} data-period="${i}" data-status="true" data-subject="${subject}">Present</button>
-                                <button class="attendance-btn ${absentActive}" ${disabledAttr} data-period="${i}" data-status="false" data-subject="${subject}">Absent</button>
+                                <button class="attendance-btn ${presentActive}" ${disabledAttr} data-period="${i}" data-status="true" data-subject="${displaySubject}">Present</button>
+                                <button class="attendance-btn ${absentActive}" ${disabledAttr} data-period="${i}" data-status="false" data-subject="${displaySubject}">Absent</button>
                             </div>
                         </div>`;
                 });
@@ -693,7 +823,7 @@
             const dateKey = getDateKey(currentDate);
             if (isLocked(dateKey)) return;
             if (!userData.attendance[dateKey]) userData.attendance[dateKey] = {};
-            userData.attendance[dateKey][periodIndex] = { present: isPresent, subject };
+            userData.attendance[dateKey][periodIndex] = { present: isPresent, subject: subject.trim() };
             saveData();
         }
 
@@ -721,43 +851,154 @@
         function generateStats() {
             const attendance = userData?.attendance || {};
             const holidays = userData?.holidays || {};
-            let totalHeld = 0, totalPresent = 0;
+            let totalHeld = 0;
+            let totalPresent = 0;
             const bySubject = {};
+            const subjectDisplayNames = {};
+            const targetPercentage = 0.80; // Target is 80%
 
             Object.keys(attendance).forEach(dateKey => {
                 if (holidays[dateKey]) return;
                 Object.values(attendance[dateKey] || {}).forEach(entry => {
-                    if (!entry) return;
+                    if (!entry || !entry.subject) return;
+                    
                     totalHeld++;
                     if (entry.present) totalPresent++;
-                    const s = entry.subject || 'Unknown';
-                    if (!bySubject[s]) bySubject[s] = {held:0, present:0};
-                    bySubject[s].held++;
-                    if (entry.present) bySubject[s].present++;
+                    
+                    const s = entry.subject;
+                    const s_key = s.trim().toLowerCase();
+                    
+                    if (!bySubject[s_key]) {
+                        bySubject[s_key] = {held:0, present:0};
+                        subjectDisplayNames[s_key] = s;
+                    }
+                    
+                    bySubject[s_key].held++;
+                    if (entry.present) bySubject[s_key].present++;
                 });
             });
 
-            const pct = totalHeld ? ((totalPresent/totalHeld)*100).toFixed(1) : 0;
+            const pct = totalHeld > 0 ? ((totalPresent / totalHeld) * 100).toFixed(1) : 0;
             $('#statsGrid').innerHTML = `
                 <div class="stat-card"><div class="stat-number">${totalHeld}</div><div>Total Classes</div></div>
                 <div class="stat-card"><div class="stat-number">${totalPresent}</div><div>Present</div></div>
                 <div class="stat-card"><div class="stat-number">${totalHeld - totalPresent}</div><div>Absent</div></div>
                 <div class="stat-card"><div class="stat-number">${pct}%</div><div>Overall Attendance</div></div>`;
 
-            const rows = Object.keys(bySubject).sort().map(s => {
-                const {held, present} = bySubject[s];
-                const p = held ? ((present/held)*100).toFixed(1) : 0;
-                const badge = p >= 75 ? 'good-attendance' : (p >= 60 ? 'warning-attendance' : 'poor-attendance');
-                return `<tr><td>${s}</td><td>${held}</td><td>${present}</td><td><span class="attendance-percentage ${badge}">${p}%</span></td></tr>`;
+            // Calculate and display overall status
+            const overallStatusEl = $('#overallStatus');
+            if (totalHeld === 0) {
+                overallStatusEl.innerHTML = 'Mark some attendance to see your status.';
+            } else {
+                const overallPct = totalPresent / totalHeld;
+                if (overallPct < targetPercentage) {
+                    let classesToAttend = 0;
+                    let tempPresent = totalPresent;
+                    let tempHeld = totalHeld;
+                    while ((tempPresent / tempHeld) < targetPercentage) {
+                        classesToAttend++;
+                        tempPresent++;
+                        tempHeld++;
+                    }
+                    overallStatusEl.innerHTML = `You need to attend the next <strong>${classesToAttend}</strong> classes to reach ${targetPercentage * 100}% overall attendance.`;
+                } else {
+                    let classesToSkip = 0;
+                    let tempHeld = totalHeld;
+                    while ((totalPresent / (tempHeld + 1)) >= targetPercentage) {
+                        classesToSkip++;
+                        tempHeld++;
+                    }
+                    overallStatusEl.innerHTML = `You can skip the next <strong>${classesToSkip}</strong> classes and still maintain ${targetPercentage * 100}% overall attendance.`;
+                }
+            }
+
+            const rows = Object.keys(bySubject).sort().map(s_key => {
+                const displayName = subjectDisplayNames[s_key];
+                const {held, present} = bySubject[s_key];
+                const p = held > 0 ? (present / held) : 0;
+                const p_display = (p * 100).toFixed(1);
+                const badge = p >= 0.75 ? 'good-attendance' : (p >= 0.60 ? 'warning-attendance' : 'poor-attendance');
+                
+                let statusMessage = '<span>-</span>';
+                if (held > 0) {
+                    if (p < targetPercentage) {
+                        let classesToAttend = 0;
+                        let tempPresent = present;
+                        let tempHeld = held;
+                        while ((tempPresent / tempHeld) < targetPercentage) {
+                            classesToAttend++;
+                            tempPresent++;
+                            tempHeld++;
+                        }
+                        statusMessage = `<span style="color: var(--danger); font-weight: 600;">Attend next ${classesToAttend}</span>`;
+                    } else {
+                        let classesToSkip = 0;
+                        let tempHeld = held;
+                        while ((present / (tempHeld + 1)) >= targetPercentage) {
+                            classesToSkip++;
+                            tempHeld++;
+                        }
+                        statusMessage = `<span style="color: var(--success); font-weight: 600;">Can skip ${classesToSkip}</span>`;
+                    }
+                }
+
+                return `<tr>
+                            <td>${displayName}</td>
+                            <td>${held}</td>
+                            <td>${present}</td>
+                            <td><span class="attendance-percentage ${badge}">${p_display}%</span></td>
+                            <td>${statusMessage}</td>
+                        </tr>`;
             }).join('');
 
             $('#subjectStats').innerHTML = `
                 <table class="summary-table">
-                    <thead><tr><th>Subject</th><th>Classes Held</th><th>Present</th><th>Attendance</th></tr></thead>
-                    <tbody>${rows || '<tr><td colspan="4" style="text-align:center;color:#666;">No attendance data yet</td></tr>'}</tbody>
+                    <thead><tr><th>Subject</th><th>Classes Held</th><th>Present</th><th>Attendance</th><th>Status (for 80%)</th></tr></thead>
+                    <tbody>${rows || '<tr><td colspan="5" style="text-align:center;color:#666;">No attendance data yet</td></tr>'}</tbody>
                 </table>`;
         }
         
+        // ========= Modal Logic =========
+        function openSubjectModal(periodIndex) {
+            const modal = $('#subjectModal');
+            $('#modalTitle').textContent = `Change Subject for Period ${periodIndex + 1}`;
+            
+            const subjectMap = new Map();
+            Object.values(userData.timetable).forEach(day => {
+                day.forEach(sub => {
+                    if (sub && !subjectMap.has(sub.trim().toLowerCase())) {
+                        subjectMap.set(sub.trim().toLowerCase(), sub.trim());
+                    }
+                });
+            });
+            const allSubjects = [...subjectMap.values()].sort();
+            
+            const select = $('#subjectSelect');
+            select.innerHTML = allSubjects.map(sub => `<option value="${sub}">${sub}</option>`).join('');
+            
+            $('#saveSubjectBtn').dataset.period = periodIndex;
+            modal.classList.remove('hidden');
+        }
+
+        function closeSubjectModal() {
+            $('#subjectModal').classList.add('hidden');
+        }
+
+        function handleSubjectChange() {
+            const periodIndex = $('#saveSubjectBtn').dataset.period;
+            const newSubject = $('#subjectSelect').value;
+            const dateKey = getDateKey(currentDate);
+
+            if (!userData.attendance[dateKey]) userData.attendance[dateKey] = {};
+            
+            const existingEntry = userData.attendance[dateKey][periodIndex] || {};
+            existingEntry.subject = newSubject;
+            userData.attendance[dateKey][periodIndex] = existingEntry;
+            
+            saveData();
+            closeSubjectModal();
+        }
+
         // ========= Event Listeners =========
         function setupEventListeners() {
             // Auth
@@ -792,6 +1033,9 @@
                     const { period, status, subject } = e.target.dataset;
                     markAttendance(parseInt(period), status === 'true', subject);
                 }
+                if (e.target.matches('.swap-btn')) {
+                    openSubjectModal(parseInt(e.target.dataset.period));
+                }
             });
             $('#attendanceSection').addEventListener('click', e => {
                 if (e.target.matches('#lockBtn')) lockAttendance();
@@ -802,6 +1046,11 @@
             $('#editTabs').addEventListener('click', e => { if (e.target.matches('.day-tab')) switchEditDay(e.target.dataset.day) });
             $('#editNumPeriods').addEventListener('change', () => generatePeriods($('#editPeriods'), 'editPeriod', $('#editNumPeriods').value));
             $('#updateTimetableBtn').addEventListener('click', updateTimetable);
+
+            // Modal
+            $('#saveSubjectBtn').addEventListener('click', handleSubjectChange);
+            $('#cancelSubjectBtn').addEventListener('click', closeSubjectModal);
+            $('#closeModalBtn').addEventListener('click', closeSubjectModal);
         }
         
         // ========= Dynamic Content Population =========
