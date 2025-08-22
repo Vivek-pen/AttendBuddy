@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Attendance Calculator</title>
+    <style>
+        :root {
+            --primary-start: #6D28D9; /* Deeper Purple */
+            --primary-end: #4F46E5; /* Indigo */
+            --danger: #DC2626;
+            --success: #16A34A;
+            --secondary: #4B5563;
+            --light-gray: #F3F4F6;
+            --border-color: #D1D5DB;
+            --text-dark: #1F2937;
+            --text-light: #6B7280;
+            --white: #FFFFFF;
+            --radius: 12px;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+
+        * { margin:0; padding:0; box-sizing:border-box; }
+
+        body {
+            font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--light-gray);
+            min-height: 100vh;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            padding: 1rem 0;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        .container {
+            background: var(--white);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-lg);
+            overflow: hidden;
+            max-width: 1200px;
+            width: 95%;
+            min-height: 600px;
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--primary-start), var(--primary-end));
+            color: var(--white);
+            padding: 24px;
+            text-align: center;
+        }
+        .header h1 { font-weight: 700; margin-bottom: 4px; }
+        .header p { opacity: 0.9; }
+
+        .content { padding: 32px; }
+
+        .login-form, .setup-form, .main-app { max-width: 800px; margin:0 auto; }
+
+        .form-group { margin-bottom: 20px; }
+        label { display:block; margin-bottom:8px; font-weight:600; color: var(--text-dark); }
+        input, select {
+            width:100%;
+            padding:12px;
+            border:1px solid var(--border-color);
+            border-radius:8px;
+            font-size:16px;
+            transition:all .2s ease;
+        }
+        input:focus, select:focus {
+            outline:none;
+            border-color:var(--primary-end);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
+        }
+
+        button {
+            width:100%;
+            padding:12px;
+            border:none;
+            border-radius:8px;
+            font-size:16px;
+            font-weight:600;
+            cursor:pointer;
+            transition:all .2s ease;
+            background: linear-gradient(45deg, var(--primary-start), var(--primary-end));
+            color: var(--white);
+            box-shadow: var(--shadow-sm);
+        }
+        button:disabled { background: #9CA3AF; cursor: not-allowed; transform: none; box-shadow: none; }
+        button:hover:not(:disabled) { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+        .btn-secondary { background: var(--secondary); margin-top:10px; }
+        .btn-danger { background: var(--danger); }
+
+        .day-tabs { display:flex; gap:8px; margin-bottom:24px; flex-wrap:wrap; }
+        .day-tab {
+            flex:1;
+            min-width:120px;
+            padding:10px;
+            background: var(--white);
+            border:1px solid var(--border-color);
+            border-radius:8px;
+            cursor:pointer;
+            text-align:center;
+            transition:all .2s ease;
+            font-weight:600;
+            color: var(--text-light);
+        }
+        .day-tab.active {
+            background:var(--primary-end);
+            color:var(--white);
+            border-color:var(--primary-end);
+            box-shadow: var(--shadow-sm);
+        }
+        .day-tab:hover:not(.active) { background:var(--light-gray); }
+
+        .timetable-setup { background:var(--light-gray); border-radius:10px; padding:24px; margin-bottom:24px; }
+        .periods-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:15px; margin-top:15px; }
+        .period-input { display:flex; flex-direction:column; gap:5px; }
+        .period-input label { font-size:14px; margin-bottom:5px; }
+
+        .timetable-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:20px; margin-top:20px; }
+        .period-card {
+            background: var(--white);
+            border:1px solid var(--border-color);
+            border-radius:var(--radius);
+            padding:15px;
+            position:relative;
+            box-shadow: var(--shadow-sm);
+            transition: all 0.2s ease-in-out;
+        }
+        .period-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-md);
+        }
+        .period-number {
+            background: linear-gradient(135deg, var(--primary-start), var(--primary-end));
+            color:var(--white);
+            width:32px;
+            height:32px;
+            border-radius:50%;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            position:absolute;
+            top:-16px;
+            left:16px;
+            font-weight:bold;
+            border: 2px solid var(--white);
+        }
+        .period-card h4 { margin-left: 32px; font-weight: 600; color: var(--text-dark); }
+
+        .attendance-controls { display:flex; gap:10px; margin-top:15px; }
+        .attendance-btn {
+            flex:1;
+            padding:8px;
+            border:none;
+            border-radius:8px;
+            cursor:pointer;
+            font-weight:600;
+            transition:all .2s ease;
+        }
+        .present-btn { background:var(--success); color:var(--white); }
+        .absent-btn { background:var(--danger); color:var(--white); }
+        .present-btn.active { background:#14532D; box-shadow: inset 0 2px 4px rgba(0,0,0,0.2); }
+        .absent-btn.active { background:#7F1D1D; box-shadow: inset 0 2px 4px rgba(0,0,0,0.2); }
+        .attendance-btn:disabled { opacity:0.6; cursor:not-allowed; filter:grayscale(20%); }
+
+        .stats-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:20px; margin-top:30px; }
+        .stat-card { background: linear-gradient(135deg, var(--primary-start), var(--primary-end)); color:var(--white); padding:20px; border-radius:var(--radius); text-align:center; }
+        .stat-number { font-size:2.2em; font-weight:bold; margin-bottom:5px; }
+
+        .navigation { display:flex; gap:10px; margin-bottom:30px; flex-wrap:wrap; }
+        .nav-btn {
+            flex:1;
+            min-width:140px;
+            padding:12px;
+            background:var(--secondary);
+            color:var(--white);
+            border-radius:8px;
+        }
+        .nav-btn.active { background:var(--primary-end); }
+        .nav-btn:hover:not(.active) { background:#374151; }
+
+        .hidden { display:none; }
+
+        .date-selector { margin-bottom:24px; text-align:center; }
+        .date-controls {
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            gap:15px;
+            margin-top:10px;
+            flex-wrap:nowrap;
+        }
+        .date-btn {
+            background:var(--white);
+            color:var(--primary-end);
+            border:1px solid var(--border-color);
+            padding:8px 12px;
+            border-radius:8px;
+            width:auto;
+            min-width:auto;
+            flex-shrink: 0;
+            box-shadow: var(--shadow-sm);
+        }
+        .date-btn:hover { background:var(--light-gray); color:var(--primary-end); }
+        .current-date { font-size:1.2em; font-weight:600; color:var(--text-dark); min-width:280px; text-align:center; }
+
+        #markHolidayBtn {
+            display: block;
+            width: auto;
+            max-width: 250px;
+            margin: 24px auto 0;
+            padding: 10px 15px;
+            font-size: 14px;
+            font-weight: 600;
+            background: var(--white);
+            color: var(--secondary);
+            border: 1px solid var(--border-color);
+        }
+        #markHolidayBtn:hover { background: var(--light-gray); }
+
+        .summary-table { width:100%; border-collapse:collapse; margin-top:24px; }
+        .summary-table th, .summary-table td { padding:12px 15px; text-align:left; border-bottom:1px solid var(--border-color); }
+        .summary-table th { background:var(--light-gray); font-weight:600; color: var(--text-dark); }
+        .attendance-percentage { font-weight:bold; padding:4px 8px; border-radius:6px; color:var(--white); font-size: 0.9em; }
+        .good-attendance { background:var(--success); }
+        .warning-attendance { background:#F59E0B; color: var(--text-dark); }
+        .poor-attendance { background:var(--danger); }
+
+        .no-classes { text-align:center; padding:40px; color:var(--text-light); background:var(--light-gray); border-radius:var(--radius); margin:20px 0; }
+        .day-info { background: #DBEAFE; border-left:4px solid #2563EB; padding:15px; margin-bottom:24px; border-radius: 0 8px 8px 0; }
+        .day-name { font-weight:bold; color:#1E40AF; font-size:1.1em; }
+
+        #attendanceActions { display:flex; justify-content:center; margin:24px 0 0; }
+
+        @media (max-width: 768px) {
+            body { padding: 0; }
+            .container { width:100%; min-height:100vh; margin:0; border-radius:0; }
+            .content { padding: 20px; }
+            .day-tabs, .navigation { flex-direction:column; }
+            .date-controls { flex-direction: column; gap: 15px; }
+            .periods-grid { grid-template-columns:1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📚 Attendance Calculator</h1>
+            <p>Track your weekly timetable and daily attendance</p>
+        </div>
+        <div class="content">
+            <!-- Login Screen -->
+            <div id="loginScreen">
+                <div class="login-form">
+                    <h2 style="text-align:center; margin-bottom: 30px; color:#333;">Welcome Back!</h2>
+                    <div class="form-group">
+                        <label for="username">Username (will be used as an email)</label>
+                        <input type="text" id="username" placeholder="Enter your username"/>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" placeholder="Enter your password"/>
+                    </div>
+                    <button id="loginBtn">Login</button>
+                    <button id="showRegisterBtn" class="btn-secondary">Create New Account</button>
+                </div>
+            </div>
+            <!-- Registration Screen -->
+            <div id="registerScreen" class="hidden">
+                <div class="login-form">
+                    <h2 style="text-align:center; margin-bottom: 30px; color:#333;">Create Account</h2>
+                    <div class="form-group">
+                        <label for="newUsername">Username (will be used as an email)</label>
+                        <input type="text" id="newUsername" placeholder="Choose a username"/>
+                    </div>
+                    <div class="form-group">
+                        <label for="newPassword">Password</label>
+                        <input type="password" id="newPassword" placeholder="Choose a password"/>
+                    </div>
+                    <button id="registerBtn">Create Account</button>
+                    <button id="showLoginBtn" class="btn-secondary">Back to Login</button>
+                </div>
+            </div>
+            <!-- Timetable Setup -->
+            <div id="setupScreen" class="hidden">
+                <div class="setup-form">
+                    <h2 style="text-align:center; margin-bottom: 30px; color:#333;">Setup Your Weekly Timetable</h2>
+                    <p style="text-align:center; margin-bottom: 30px; color:#666;">Set up your schedule for each day of the week</p>
+                    <div class="day-tabs" id="setupTabs"></div>
+                    <div class="timetable-setup">
+                        <div class="form-group">
+                            <label for="setupNumPeriods">Number of Periods</label>
+                            <select id="setupNumPeriods">
+                                <!-- Options generated by JS -->
+                            </select>
+                        </div>
+                        <div id="setupPeriods" class="periods-grid"></div>
+                    </div>
+                    <button id="saveTimetableBtn">Save Complete Timetable</button>
+                    <button id="logoutBtnSetup" class="btn-secondary">Logout</button>
+                </div>
+            </div>
+            <!-- Main App -->
+            <div id="mainApp" class="hidden">
+                <div class="navigation" id="mainNav"></div>
+                <!-- Attendance -->
+                <div id="attendanceSection">
+                    <div class="date-selector">
+                        <h3>Mark Attendance</h3>
+                        <div class="date-controls">
+                            <button id="prevDayBtn">← Previous Day</button>
+                            <div class="current-date" id="currentDate"></div>
+                            <button id="nextDayBtn">Next Day →</button>
+                        </div>
+                    </div>
+                    <div id="dayInfo" class="day-info"></div>
+                    <div id="attendanceGrid" class="timetable-grid"></div>
+                    <button id="markHolidayBtn">Mark Today as Holiday</button>
+                    <div id="attendanceActions"></div>
+                </div>
+                <!-- Statistics -->
+                <div id="statsSection" class="hidden">
+                    <h3 style="text-align:center; margin-bottom:30px;">Attendance Statistics</h3>
+                    <div id="statsGrid" class="stats-grid"></div>
+                    <div id="subjectStats"></div>
+                </div>
+                <!-- Timetable Edit -->
+                <div id="timetableEditSection" class="hidden">
+                    <h3 style="text-align:center; margin-bottom:30px;">Edit Weekly Timetable</h3>
+                    <div class="day-tabs" id="editTabs"></div>
+                    <div class="timetable-setup">
+                        <div class="form-group">
+                            <label for="editNumPeriods">Number of Periods</label>
+                            <select id="editNumPeriods">
+                                <!-- Options generated by JS -->
+                            </select>
+                        </div>
+                        <div id="editPeriods" class="periods-grid"></div>
+                    </div>
+                    <button id="updateTimetableBtn">Update Timetable</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Import Firebase modules
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Firebase Configuration
+        // IMPORTANT: Replace this with your actual firebaseConfig object from your project settings
+        const firebaseConfig = {
+  apiKey: "AIzaSyBbeSpO7t9jd0n8DWDzBMvSWftKLbi8GRE",
+  authDomain: "my-attendance-tracker-15032.firebaseapp.com",
+  projectId: "my-attendance-tracker-15032",
+  storageBucket: "my-attendance-tracker-15032.firebasestorage.app",
+  messagingSenderId: "138015796636",
+  appId: "1:138015796636:web:0e7ffe5093736ddb082c59",
+  measurementId: "G-K5X6XQQX6V"
+};
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-attendance-app';
+
+        // Initialize Firebase
+        let app, auth, db;
+        try {
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
+        } catch (e) {
+            console.error("Firebase initialization failed:", e);
+            alert("Could not connect to the backend. Please check the configuration.");
+        }
+
+        // ========= Global State =========
+        let userData = null; 
+        let currentUser = null; 
+        let unsubscribe = null;
+        let currentDate = new Date();
+        let currentSetupDay = 'monday';
+        let currentEditDay = 'monday';
+
+        const days = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+        const tabDays = ['monday','tuesday','wednesday','thursday','friday','saturday'];
+        
+        // ========= Helpers =========
+        const $ = (selector) => document.querySelector(selector);
+        const $$ = (selector) => document.querySelectorAll(selector);
+        const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+        const hasAnyClass = (tt) => tt && tabDays.some(d => Array.isArray(tt[d]) && tt[d].length > 0);
+        const getDateKey = (date) => date.toISOString().split('T')[0];
+
+        function setActiveTab(containerSelector, day) {
+            $$(`${containerSelector} .day-tab`).forEach(t => t.classList.remove('active'));
+            const tab = $(`${containerSelector} [data-day="${day}"]`);
+            if (tab) tab.classList.add('active');
+        }
+
+        const isLocked = (dateKey) => !!(userData?.attendanceLock?.[dateKey]);
+        
+        // ========= App Initialization & Auth State Management =========
+        document.addEventListener('DOMContentLoaded', () => {
+            updateCurrentDateDisplay();
+            setupEventListeners();
+            populateStaticElements();
+            onAuthStateChanged(auth, user => {
+                if (user) {
+                    currentUser = user;
+                    setupRealtimeListener(user.uid);
+                } else {
+                    currentUser = null;
+                    userData = null;
+                    if (unsubscribe) unsubscribe();
+                    showLogin();
+                }
+            });
+        });
+
+        function setupRealtimeListener(uid) {
+            const userDocRef = doc(db, "artifacts", appId, "users", uid);
+            unsubscribe = onSnapshot(userDocRef, (doc) => {
+                if (doc.exists()) {
+                    userData = doc.data();
+                    if ($('#mainApp').classList.contains('hidden') && $('#setupScreen').classList.contains('hidden')) {
+                        if (hasAnyClass(userData.timetable)) showMainApp();
+                        else showSetup();
+                    }
+                    refreshCurrentView();
+                } else {
+                    const initialData = {
+                        timetable: { monday:[], tuesday:[], wednesday:[], thursday:[], friday:[], saturday:[] },
+                        attendance: {}, attendanceLock: {}, holidays: {}
+                    };
+                    setDoc(userDocRef, initialData).then(() => {
+                        userData = initialData;
+                        showSetup();
+                    });
+                }
+            });
+        }
+        
+        const refreshCurrentView = () => {
+            if (!$('#attendanceSection').classList.contains('hidden')) generateAttendanceGrid();
+            else if (!$('#statsSection').classList.contains('hidden')) generateStats();
+        };
+        
+        async function saveData() {
+            if (!currentUser || !userData) return;
+            const userDocRef = doc(db, "artifacts", appId, "users", currentUser.uid);
+            try {
+                await setDoc(userDocRef, userData);
+            } catch (error) {
+                console.error("Error saving data:", error);
+                alert("Could not save your changes. Please check your connection.");
+            }
+        }
+
+        // ========= Auth Functions =========
+        async function login(btn) {
+            const username = $('#username').value.trim();
+            const password = $('#password').value;
+            if (!username || !password) return alert('Please enter both username and password');
+            
+            const email = username.includes('@') ? username : `${username}@example.com`;
+            btn.disabled = true;
+            btn.textContent = 'Logging in...';
+
+            try {
+                await signInWithEmailAndPassword(auth, email, password);
+            } catch (error) {
+                const errorCode = error.code;
+                if (errorCode === 'auth/user-not-found' || errorCode === 'auth/wrong-password' || errorCode === 'auth/invalid-credential') {
+                    alert('Invalid username or password.');
+                } else {
+                    alert(`Login failed: ${error.message}`);
+                }
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Login';
+            }
+        }
+
+        async function register(btn) {
+            const username = $('#newUsername').value.trim();
+            const password = $('#newPassword').value;
+            if (!username || !password) return alert('Please enter both username and password');
+            if (password.length < 6) return alert('Password must be at least 6 characters long.');
+            
+            const email = username.includes('@') ? username : `${username}@example.com`;
+            btn.disabled = true;
+            btn.textContent = 'Creating...';
+
+            try {
+                await createUserWithEmailAndPassword(auth, email, password);
+                alert('Account created successfully! Please log in.');
+                showLogin();
+            } catch (error) {
+                if (error.code === 'auth/email-already-in-use') {
+                    alert('This username is already taken.');
+                } else {
+                    alert(`Registration failed: ${error.message}`);
+                }
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Create Account';
+            }
+        }
+
+        const logout = () => signOut(auth).catch(err => alert("Error signing out."));
+
+        // ========= Screen Navigation =========
+        const hideAllScreens = () => $$('#loginScreen, #registerScreen, #setupScreen, #mainApp').forEach(s => s.classList.add('hidden'));
+        const showLogin = () => { hideAllScreens(); $('#loginScreen').classList.remove('hidden'); };
+        const showRegister = () => { hideAllScreens(); $('#registerScreen').classList.remove('hidden'); };
+        function showSetup(){
+            hideAllScreens();
+            $('#setupScreen').classList.remove('hidden');
+            currentSetupDay = 'monday';
+            setActiveTab('#setupTabs', 'monday');
+            loadSetupDay('monday');
+        }
+        function showMainApp(){
+            hideAllScreens();
+            $('#mainApp').classList.remove('hidden');
+            showAttendance();
+        }
+
+        // ========= Timetable Setup & Edit =========
+        function switchSetupDay(day) {
+            saveCurrentSetupDay();
+            currentSetupDay = day;
+            setActiveTab('#setupTabs', day);
+            loadSetupDay(day);
+        }
+
+        function saveCurrentSetupDay() {
+            if (!userData) return;
+            const num = parseInt($('#setupNumPeriods').value) || 0;
+            userData.timetable[currentSetupDay] = Array.from({length: num}, (_, i) => {
+                const el = $(`#setupPeriod${i+1}`);
+                return (el?.value.trim()) || `Subject ${i+1}`;
+            });
+        }
+
+        function loadSetupDay(day) {
+            const tt = userData?.timetable[day] || [];
+            $('#setupNumPeriods').value = String(tt.length);
+            generatePeriods($('#setupPeriods'), 'setupPeriod', tt.length);
+            tt.forEach((s, i) => {
+                const el = $(`#setupPeriod${i+1}`);
+                if (el) el.value = s;
+            });
+        }
+        
+        function generatePeriods(container, idPrefix, num) {
+            container.innerHTML = '';
+            if (num === 0) {
+                container.innerHTML = '<p style="text-align:center;color:#666;padding:20px;">No classes on this day</p>';
+                return;
+            }
+            for (let i = 1; i <= num; i++) {
+                container.innerHTML += `<div class="period-input"><label for="${idPrefix}${i}">Period ${i}</label><input type="text" id="${idPrefix}${i}" placeholder="Enter subject name"></div>`;
+            }
+        }
+
+        function saveTimetable() {
+            saveCurrentSetupDay();
+            if (!hasAnyClass(userData.timetable)) return alert('Please add classes for at least one day.');
+            saveData().then(() => {
+                alert('Timetable saved successfully!');
+                showMainApp();
+            });
+        }
+        
+        const showTimetableEdit = () => {
+            $$('#mainNav .nav-btn').forEach(b => b.classList.remove('active'));
+            $('#mainNav .nav-btn[data-section="timetableEditSection"]').classList.add('active');
+            hideMainSections();
+            $('#timetableEditSection').classList.remove('hidden');
+            currentEditDay = 'monday';
+            setActiveTab('#editTabs', 'monday');
+            loadEditDay('monday');
+        };
+
+        function switchEditDay(day) {
+            saveCurrentEditDay();
+            currentEditDay = day;
+            setActiveTab('#editTabs', day);
+            loadEditDay(day);
+        }
+
+        function saveCurrentEditDay() {
+            const num = parseInt($('#editNumPeriods').value) || 0;
+            userData.timetable[currentEditDay] = Array.from({length: num}, (_, i) => {
+                 const el = $(`#editPeriod${i+1}`);
+                 return (el?.value.trim()) || `Subject ${i+1}`;
+            });
+        }
+
+        function loadEditDay(day) {
+            const tt = userData.timetable[day] || [];
+            $('#editNumPeriods').value = String(tt.length);
+            generatePeriods($('#editPeriods'), 'editPeriod', tt.length);
+            tt.forEach((s, i) => {
+                const el = $(`#editPeriod${i+1}`);
+                if (el) el.value = s;
+            });
+        }
+
+        function updateTimetable() {
+            saveCurrentEditDay();
+            saveData().then(() => {
+                alert('Timetable updated successfully!');
+                showAttendance();
+            });
+        }
+        
+        // ========= Main App Section Navigation =========
+        const hideMainSections = () => $$('#attendanceSection, #statsSection, #timetableEditSection').forEach(s => s.classList.add('hidden'));
+
+        const showAttendance = () => {
+            $$('#mainNav .nav-btn').forEach(b => b.classList.remove('active'));
+            $('#mainNav .nav-btn[data-section="attendanceSection"]').classList.add('active');
+            hideMainSections();
+            $('#attendanceSection').classList.remove('hidden');
+            generateAttendanceGrid();
+        };
+
+        const showStats = () => {
+            $$('#mainNav .nav-btn').forEach(b => b.classList.remove('active'));
+            $('#mainNav .nav-btn[data-section="statsSection"]').classList.add('active');
+            hideMainSections();
+            $('#statsSection').classList.remove('hidden');
+            generateStats();
+        };
+
+        // ========= Date Handling =========
+        const updateCurrentDateDisplay = () => $('#currentDate').textContent = currentDate.toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+        function changeDate(d) {
+            currentDate.setDate(currentDate.getDate() + d);
+            updateCurrentDateDisplay();
+            generateAttendanceGrid();
+        }
+        const getCurrentDayName = () => days[currentDate.getDay()];
+
+        // ========= Attendance & Locking =========
+        function generateAttendanceGrid() {
+            const dateKey = getDateKey(currentDate);
+            const currentDay = getCurrentDayName();
+            const timetable = userData?.timetable[currentDay] || [];
+            const saved = userData?.attendance[dateKey] || {};
+            const locked = isLocked(dateKey);
+
+            $('#dayInfo').innerHTML = `<div class="day-name">Day: ${cap(currentDay)}</div><div style="margin-top:5px;color:#666;">Date: ${currentDate.toDateString()}</div>`;
+            const grid = $('#attendanceGrid');
+            grid.innerHTML = '';
+
+            if (userData?.holidays?.[dateKey]) {
+                grid.innerHTML = '<div class="no-classes">Marked as a Holiday</div>';
+                $('#attendanceActions').innerHTML = '';
+                return;
+            }
+            
+            if (timetable.length === 0) {
+                grid.innerHTML = '<div class="no-classes">No classes today</div>';
+            } else {
+                timetable.forEach((subject, i) => {
+                    const entry = saved[i] || null;
+                    const presentActive = entry?.present ? 'present-btn active' : 'present-btn';
+                    const absentActive  = entry?.present === false ? 'absent-btn active' : 'absent-btn';
+                    const disabledAttr  = locked ? 'disabled' : '';
+                    grid.innerHTML += `
+                        <div class="period-card">
+                            <div class="period-number">${i+1}</div>
+                            <h4 style="margin-left:40px;">${subject}</h4>
+                            <div class="attendance-controls">
+                                <button class="attendance-btn ${presentActive}" ${disabledAttr} data-period="${i}" data-status="true" data-subject="${subject}">Present</button>
+                                <button class="attendance-btn ${absentActive}" ${disabledAttr} data-period="${i}" data-status="false" data-subject="${subject}">Absent</button>
+                            </div>
+                        </div>`;
+                });
+            }
+
+            const actions = $('#attendanceActions');
+            if (timetable.length === 0) {
+                actions.innerHTML = '';
+            } else if (locked) {
+                actions.innerHTML = `<button id="unlockBtn" class="date-btn" style="padding:6px 10px;font-size:14px;width:auto;min-width:100px">Edit</button>`;
+            } else {
+                actions.innerHTML = `<button id="lockBtn" class="date-btn" style="padding:6px 10px;font-size:14px;width:auto;min-width:100px">Done</button>`;
+            }
+        }
+
+        function markAttendance(periodIndex, isPresent, subject) {
+            const dateKey = getDateKey(currentDate);
+            if (isLocked(dateKey)) return;
+            if (!userData.attendance[dateKey]) userData.attendance[dateKey] = {};
+            userData.attendance[dateKey][periodIndex] = { present: isPresent, subject };
+            saveData();
+        }
+
+        const lockAttendance = () => {
+            const dateKey = getDateKey(currentDate);
+            if (!userData.attendanceLock) userData.attendanceLock = {};
+            userData.attendanceLock[dateKey] = true;
+            saveData();
+        };
+
+        const unlockAttendance = () => {
+            const dateKey = getDateKey(currentDate);
+            if (userData.attendanceLock) userData.attendanceLock[dateKey] = false;
+            saveData();
+        };
+
+        const markHoliday = () => {
+            const dateKey = getDateKey(currentDate);
+            if (!userData.holidays) userData.holidays = {};
+            userData.holidays[dateKey] = true;
+            saveData().then(() => alert(currentDate.toDateString() + " marked as holiday!"));
+        };
+
+        // ========= Statistics =========
+        function generateStats() {
+            const attendance = userData?.attendance || {};
+            const holidays = userData?.holidays || {};
+            let totalHeld = 0, totalPresent = 0;
+            const bySubject = {};
+
+            Object.keys(attendance).forEach(dateKey => {
+                if (holidays[dateKey]) return;
+                Object.values(attendance[dateKey] || {}).forEach(entry => {
+                    if (!entry) return;
+                    totalHeld++;
+                    if (entry.present) totalPresent++;
+                    const s = entry.subject || 'Unknown';
+                    if (!bySubject[s]) bySubject[s] = {held:0, present:0};
+                    bySubject[s].held++;
+                    if (entry.present) bySubject[s].present++;
+                });
+            });
+
+            const pct = totalHeld ? ((totalPresent/totalHeld)*100).toFixed(1) : 0;
+            $('#statsGrid').innerHTML = `
+                <div class="stat-card"><div class="stat-number">${totalHeld}</div><div>Total Classes</div></div>
+                <div class="stat-card"><div class="stat-number">${totalPresent}</div><div>Present</div></div>
+                <div class="stat-card"><div class="stat-number">${totalHeld - totalPresent}</div><div>Absent</div></div>
+                <div class="stat-card"><div class="stat-number">${pct}%</div><div>Overall Attendance</div></div>`;
+
+            const rows = Object.keys(bySubject).sort().map(s => {
+                const {held, present} = bySubject[s];
+                const p = held ? ((present/held)*100).toFixed(1) : 0;
+                const badge = p >= 75 ? 'good-attendance' : (p >= 60 ? 'warning-attendance' : 'poor-attendance');
+                return `<tr><td>${s}</td><td>${held}</td><td>${present}</td><td><span class="attendance-percentage ${badge}">${p}%</span></td></tr>`;
+            }).join('');
+
+            $('#subjectStats').innerHTML = `
+                <table class="summary-table">
+                    <thead><tr><th>Subject</th><th>Classes Held</th><th>Present</th><th>Attendance</th></tr></thead>
+                    <tbody>${rows || '<tr><td colspan="4" style="text-align:center;color:#666;">No attendance data yet</td></tr>'}</tbody>
+                </table>`;
+        }
+        
+        // ========= Event Listeners =========
+        function setupEventListeners() {
+            // Auth
+            $('#loginBtn').addEventListener('click', (e) => login(e.target));
+            $('#registerBtn').addEventListener('click', (e) => register(e.target));
+            $('#showRegisterBtn').addEventListener('click', showRegister);
+            $('#showLoginBtn').addEventListener('click', showLogin);
+            
+            // Setup
+            $('#setupTabs').addEventListener('click', e => { if (e.target.matches('.day-tab')) switchSetupDay(e.target.dataset.day) });
+            $('#setupNumPeriods').addEventListener('change', () => generatePeriods($('#setupPeriods'), 'setupPeriod', $('#setupNumPeriods').value));
+            $('#saveTimetableBtn').addEventListener('click', saveTimetable);
+            $('#logoutBtnSetup').addEventListener('click', logout);
+
+            // Main Nav
+            $('#mainNav').addEventListener('click', e => {
+                if (e.target.matches('.nav-btn')) {
+                    const section = e.target.dataset.section;
+                    if (section === 'attendanceSection') showAttendance();
+                    else if (section === 'statsSection') showStats();
+                    else if (section === 'timetableEditSection') showTimetableEdit();
+                    else if (section === 'logout') logout();
+                }
+            });
+            
+            // Attendance
+            $('#prevDayBtn').addEventListener('click', () => changeDate(-1));
+            $('#nextDayBtn').addEventListener('click', () => changeDate(1));
+            $('#markHolidayBtn').addEventListener('click', markHoliday);
+            $('#attendanceGrid').addEventListener('click', e => {
+                if (e.target.matches('.attendance-btn')) {
+                    const { period, status, subject } = e.target.dataset;
+                    markAttendance(parseInt(period), status === 'true', subject);
+                }
+            });
+            $('#attendanceSection').addEventListener('click', e => {
+                if (e.target.matches('#lockBtn')) lockAttendance();
+                if (e.target.matches('#unlockBtn')) unlockAttendance();
+            });
+
+            // Edit
+            $('#editTabs').addEventListener('click', e => { if (e.target.matches('.day-tab')) switchEditDay(e.target.dataset.day) });
+            $('#editNumPeriods').addEventListener('change', () => generatePeriods($('#editPeriods'), 'editPeriod', $('#editNumPeriods').value));
+            $('#updateTimetableBtn').addEventListener('click', updateTimetable);
+        }
+        
+        // ========= Dynamic Content Population =========
+        function populateStaticElements() {
+            // Period selectors
+            const periodOptions = Array.from({length: 11}, (_, i) => `<option value="${i}">${i === 0 ? 'No Classes' : `${i} Period${i > 1 ? 's' : ''}`}</option>`).join('');
+            $('#setupNumPeriods').innerHTML = periodOptions;
+            $('#editNumPeriods').innerHTML = periodOptions;
+            
+            // Day tabs
+            const dayTabsHTML = tabDays.map(day => `<div class="day-tab" data-day="${day}">${cap(day)}</div>`).join('');
+            $('#setupTabs').innerHTML = dayTabsHTML;
+            $('#editTabs').innerHTML = dayTabsHTML;
+            
+            // Main Nav
+            $('#mainNav').innerHTML = `
+                <button class="nav-btn" data-section="attendanceSection">Mark Attendance</button>
+                <button class="nav-btn" data-section="statsSection">Statistics</button>
+                <button class="nav-btn" data-section="timetableEditSection">Edit Timetable</button>
+                <button class="nav-btn btn-danger" data-section="logout">Logout</button>
+            `;
+        }
+    </script>
+</body>
+</html>
