@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Attendance Calculator</title>
+    <script src="config.js"></script> 
     <style>
         :root {
             --primary-start: #6D28D9; /* Deeper Purple */
@@ -355,15 +356,7 @@
 
         // Firebase Configuration
         // IMPORTANT: Replace this with your actual firebaseConfig object from your project settings
-        const firebaseConfig = {
-          apiKey: import.meta.env.VITE_API_KEY,
-          authDomain: import.meta.env.VITE_AUTH_DOMAIN,
-          projectId: import.meta.env.VITE_PROJECT_ID,
-          storageBucket: import.meta.env.VITE_STORAGE_BUCKET,
-          messagingSenderId: import.meta.env.VITE_MESSAGING_SENDER_ID,
-          appId: import.meta.env.VITE_APP_ID,
-          measurementId: import.meta.env.VITE_MEASUREMENT_ID
-        };
+        
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-attendance-app';
 
         // Initialize Firebase
