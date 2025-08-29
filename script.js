@@ -602,7 +602,7 @@ function handleSubjectChange() {
     closeSubjectModal();
 }
 
-// ========= Reset Modal Logic =========
+// ========= Reset Modal Logic (UPDATED) =========
 function openResetModal() {
     $('#resetModal').classList.remove('hidden');
 }
@@ -612,21 +612,18 @@ function closeResetModal() {
 }
 
 function handleResetData() {
-    // Reset attendance data
+    // Reset attendance data, holidays, locks, and timetable
     userData.attendance = {};
     userData.holidays = {};
     userData.attendanceLock = {};
-
-    // Reset initial counts for all subjects
-    Object.keys(userData.subjects).forEach(key => {
-        userData.subjects[key].initialAttended = 0;
-        userData.subjects[key].initialHeld = 0;
-    });
+    userData.subjects = {};
+    userData.timetable = { monday:[], tuesday:[], wednesday:[], thursday:[], friday:[], saturday:[] };
 
     saveData().then(() => {
-        alert('Your semester data has been successfully reset.');
+        alert('Your semester data and timetable have been successfully reset.');
         closeResetModal();
-        showStats(); // Refresh stats page to show cleared data
+        // Go back to the setup screen for a fresh start
+        showSetup();
     });
 }
 
@@ -635,7 +632,7 @@ function setupEventListeners() {
     // Auth
     $('#googleSignInBtn').addEventListener('click', signInWithGoogle);
     $('#profileLogoutBtn').addEventListener('click', logout);
-    $('#resetDataBtn').addEventListener('click', openResetModal); // New listener
+    $('#resetDataBtn').addEventListener('click', openResetModal);
     
     // Setup
     $('#setupTabs').addEventListener('click', e => { if (e.target.matches('.day-tab')) switchSetupDay(e.target.dataset.day) });
@@ -681,9 +678,9 @@ function setupEventListeners() {
     $('#saveSubjectBtn').addEventListener('click', handleSubjectChange);
     $('#cancelSubjectBtn').addEventListener('click', closeSubjectModal);
     $('#closeModalBtn').addEventListener('click', closeSubjectModal);
-    $('#confirmResetBtn').addEventListener('click', handleResetData); // New listener
-    $('#cancelResetBtn').addEventListener('click', closeResetModal); // New listener
-    $('#closeResetModalBtn').addEventListener('click', closeResetModal); // New listener
+    $('#confirmResetBtn').addEventListener('click', handleResetData);
+    $('#cancelResetBtn').addEventListener('click', closeResetModal);
+    $('#closeResetModalBtn').addEventListener('click', closeResetModal);
 }
 
 // ========= Dynamic Content Population =========
