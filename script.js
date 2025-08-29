@@ -1,4 +1,3 @@
-// Import Firebase modules
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
@@ -175,7 +174,8 @@ function saveCurrentSetupDay() {
     const num = parseInt($('#setupNumPeriods').value) || 0;
     userData.timetable[currentSetupDay] = Array.from({length: num}, (_, i) => {
         const el = $(`#setupPeriod${i+1}`);
-        const subjectName = (el?.value.trim()) || `Subject ${i+1}`;
+        const subjectName = (el?.value.trim());
+        if (!subjectName) return null; // Store null for blank subjects
         // Initialize subject in the subjects object if it's new
         const subjectKey = subjectName.toLowerCase();
         if (!userData.subjects[subjectKey]) {
@@ -186,7 +186,7 @@ function saveCurrentSetupDay() {
             };
         }
         return subjectName;
-    });
+    }).filter(Boolean); // Filter out null values
 }
 
 function loadSetupDay(day) {
@@ -201,7 +201,7 @@ function loadSetupDay(day) {
 
 function generatePeriods(container, idPrefix, num) {
     container.innerHTML = '';
-    if (num === 0) {
+    if (num == 0) {
         container.innerHTML = '<p style="text-align:center;color:#666;padding:20px;">No classes on this day</p>';
         return;
     }
@@ -227,7 +227,7 @@ function showTimetableEdit() {
     currentEditDay = 'monday';
     setActiveTab('#editTabs', 'monday');
     loadEditDay('monday');
-    generateInitialCountsInputs(); // New function call
+    generateInitialCountsInputs();
 };
 
 function switchEditDay(day) {
@@ -241,7 +241,8 @@ function saveCurrentEditDay() {
     const num = parseInt($('#editNumPeriods').value) || 0;
     userData.timetable[currentEditDay] = Array.from({length: num}, (_, i) => {
          const el = $(`#editPeriod${i+1}`);
-         const subjectName = (el?.value.trim()) || `Subject ${i+1}`;
+         const subjectName = (el?.value.trim());
+         if (!subjectName) return null;
          const subjectKey = subjectName.toLowerCase();
          if (!userData.subjects[subjectKey]) {
             userData.subjects[subjectKey] = {
@@ -251,7 +252,7 @@ function saveCurrentEditDay() {
             };
          }
          return subjectName;
-    });
+    }).filter(Boolean);
 }
 
 function loadEditDay(day) {
@@ -362,12 +363,22 @@ function generateAttendanceGrid() {
     const timetable = userData?.timetable[currentDay] || [];
     const saved = userData?.attendance[dateKey] || {};
     const locked = isLocked(dateKey);
+    const isHoliday = userData?.holidays?.[dateKey];
+
+    const holidayBtn = $('#markHolidayBtn');
+    if (isHoliday) {
+        holidayBtn.textContent = 'Unmark as Holiday';
+        holidayBtn.classList.add('btn-secondary');
+    } else {
+        holidayBtn.textContent = 'Mark Today as Holiday';
+        holidayBtn.classList.remove('btn-secondary');
+    }
 
     $('#dayInfo').innerHTML = `<div class="day-name">Day: ${cap(currentDay)}</div><div style="margin-top:5px;color:#666;">Date: ${currentDate.toDateString()}</div>`;
     const grid = $('#attendanceGrid');
     grid.innerHTML = '';
-
-    if (userData?.holidays?.[dateKey]) {
+    
+    if (isHoliday) {
         grid.innerHTML = '<div class="no-classes">Marked as a Holiday</div>';
         $('#attendanceActions').innerHTML = '';
         return;
@@ -414,7 +425,16 @@ function markAttendance(periodIndex, isPresent, subject) {
     const dateKey = getDateKey(currentDate);
     if (isLocked(dateKey)) return;
     if (!userData.attendance[dateKey]) userData.attendance[dateKey] = {};
-    userData.attendance[dateKey][periodIndex] = { present: isPresent, subject: subject.trim() };
+
+    const existingEntry = userData.attendance[dateKey][periodIndex];
+    
+    // If clicking the same button again, clear the entry
+    if (existingEntry && existingEntry.present === isPresent) {
+        delete userData.attendance[dateKey][periodIndex];
+    } else {
+        userData.attendance[dateKey][periodIndex] = { present: isPresent, subject: subject.trim() };
+    }
+    
     saveData();
 }
 
@@ -431,11 +451,17 @@ const unlockAttendance = () => {
     saveData();
 };
 
-const markHoliday = () => {
+function toggleHoliday() {
     const dateKey = getDateKey(currentDate);
     if (!userData.holidays) userData.holidays = {};
-    userData.holidays[dateKey] = true;
-    saveData().then(() => alert(currentDate.toDateString() + " marked as holiday!"));
+    
+    // If the day is already a holiday, unmark it
+    if (userData.holidays[dateKey]) {
+        delete userData.holidays[dateKey];
+    } else {
+        userData.holidays[dateKey] = true;
+    }
+    saveData();
 };
 
 // ========= Statistics =========
@@ -602,7 +628,7 @@ function handleSubjectChange() {
     closeSubjectModal();
 }
 
-// ========= Reset Modal Logic (UPDATED) =========
+// ========= Reset Modal Logic =========
 function openResetModal() {
     $('#resetModal').classList.remove('hidden');
 }
@@ -654,7 +680,7 @@ function setupEventListeners() {
     // Attendance
     $('#prevDayBtn').addEventListener('click', () => changeDate(-1));
     $('#nextDayBtn').addEventListener('click', () => changeDate(1));
-    $('#markHolidayBtn').addEventListener('click', markHoliday);
+    $('#markHolidayBtn').addEventListener('click', toggleHoliday); // Changed to toggleHoliday
     $('#attendanceGrid').addEventListener('click', e => {
         if (e.target.matches('.attendance-btn')) {
             const { period, status, subject } = e.target.dataset;
